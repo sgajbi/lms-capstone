@@ -29,7 +29,6 @@
         }
 
         .error-message {
-            /* NEW: Added style for invalid email */
             color: red;
             font-weight: bold;
         }
@@ -75,24 +74,20 @@
         </form>
         <p id="emailMessage" class="highlight"></p>
         <script>
-            // TASK: Complete this function
             function validateEmail() {
                 let emailInput = document.getElementById("email").value;
                 let emailMessage = document.getElementById("emailMessage");
 
-                // If email does not include '@', show "Invalid email address" and return false
                 if (!emailInput.includes('@')) {
                     emailMessage.textContent = "Invalid email address";
-                    emailMessage.classList.remove('highlight'); // Remove green highlight
-                    emailMessage.classList.add('error-message'); // Add red error style
-                    return false; // Stop form submission
-                }
-                // If valid, show "Email accepted!" and return true
-                else {
+                    emailMessage.classList.remove('highlight');
+                    emailMessage.classList.add('error-message');
+                    return false;
+                } else {
                     emailMessage.textContent = "Email accepted!";
-                    emailMessage.classList.remove('error-message'); // Remove red error style
-                    emailMessage.classList.add('highlight'); // Add green highlight
-                    return true; // Allow form submission (though for this prototype, it just means validation passed)
+                    emailMessage.classList.remove('error-message');
+                    emailMessage.classList.add('highlight');
+                    return true;
                 }
             }
         </script>
@@ -102,7 +97,14 @@
         <input type="text" id="goalInput" placeholder="e.g., Master JavaScript...">
         <p id="goalOutput">Your goal: </p>
         <script>
-            // This script section will be completed in the next step
+            // TASK: Add keypress event on #goalInput
+            // Each time a key is pressed, update #goalOutput to include the latest text
+            let goalInput = document.getElementById("goalInput");
+            let goalOutput = document.getElementById("goalOutput");
+
+            goalInput.addEventListener('input', function () {
+                goalOutput.textContent = "Your goal: " + goalInput.value;
+            });
         </script>
     </div>
 </body>
