@@ -15,3 +15,9 @@ client/app/.env.production.local
 client/app/npm-debug.log*
 client/app/yarn-error.log*
 client/app/coverage/
+
+# Backend specific ignores
+backend/node_modules/
+backend/npm-debug.log*
+backend/yarn-error.log*
+backend/.env
