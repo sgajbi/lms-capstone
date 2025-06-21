@@ -6,7 +6,6 @@ const app = express();
 const PORT = 5000;
 
 // --- In-memory Data Stores (acting as a simple database for now) ---
-// In a real application, these would be managed by a proper database (MySQL, MongoDB).
 let users = [
   // Sample users (for conceptual existence checks)
   { id: 1, name: "Alice Johnson", email: "alice@example.com" },
@@ -41,37 +40,59 @@ let courses = [
     description: "Understand relational databases and SQL queries.",
   },
 ];
-let enrollments = []; // Stores enrollments: { userId, courseId, enrollmentDate }
+let enrollments = [
+  // Seed some initial enrollments for testing
+  { userId: 1, courseId: 1, enrollmentDate: "2024-01-10T10:00:00.000Z" },
+  { userId: 1, courseId: 3, enrollmentDate: "2024-02-05T12:30:00.000Z" },
+  { userId: 2, courseId: 2, enrollmentDate: "2024-02-15T09:15:00.000Z" },
+];
+// NEW: In-memory store for user progress { userId: { courseId: { quizzes: [], timeSpent: 0, completedModules: [] } } }
+let userProgress = {
+  1: {
+    // Alice's progress
+    1: {
+      quizzes: [{ score: 85, date: "2024-03-01" }],
+      timeSpent: 120,
+      completedModules: ["Intro", "Components"],
+    },
+    3: {
+      quizzes: [{ score: 70, date: "2024-03-10" }],
+      timeSpent: 60,
+      completedModules: ["AI Concepts"],
+    },
+  },
+  2: {
+    // Bob's progress
+    2: {
+      quizzes: [{ score: 92, date: "2024-03-05" }],
+      timeSpent: 180,
+      completedModules: ["Data Types", "Pandas Intro"],
+    },
+  },
+};
 
 // --- Middleware ---
-// 1. Middleware to parse JSON bodies in requests
 app.use(express.json());
 
 // --- Routes ---
 
-// 2. Basic GET route for homepage
 app.get("/", (req, res) => {
   res.send("Welcome to the LMS backend!");
 });
 
-// 3. GET route to return a sample list of courses
 app.get("/courses", (req, res) => {
-  res.json(courses); // Now uses the global 'courses' array
+  res.json(courses);
 });
 
-// --- NEW: POST /enroll → Enroll a user in a course ---
-// Request body example: { "userId": 1, "courseId": 2 }
 app.post("/enroll", (req, res) => {
   const { userId, courseId } = req.body;
 
-  // Basic validation: Check for missing fields (Requirement)
   if (userId === undefined || courseId === undefined) {
     return res
       .status(400)
       .json({ message: "User ID and Course ID are required for enrollment." });
   }
 
-  // Ensure userId and courseId are numbers
   const numericUserId = parseInt(userId);
   const numericCourseId = parseInt(courseId);
 
@@ -81,7 +102,6 @@ app.post("/enroll", (req, res) => {
       .json({ message: "User ID and Course ID must be valid numbers." });
   }
 
-  // Conceptual existence checks for user and course
   const userExists = users.some((u) => u.id === numericUserId);
   const courseExists = courses.some((c) => c.id === numericCourseId);
 
@@ -96,7 +116,6 @@ app.post("/enroll", (req, res) => {
       .json({ message: `Course with ID ${numericCourseId} not found.` });
   }
 
-  // Check if already enrolled
   const alreadyEnrolled = enrollments.some(
     (enrollment) =>
       enrollment.userId === numericUserId &&
@@ -109,7 +128,6 @@ app.post("/enroll", (req, res) => {
     });
   }
 
-  // If all checks pass, proceed with enrollment
   const newEnrollment = {
     userId: numericUserId,
     courseId: numericCourseId,
@@ -118,12 +136,65 @@ app.post("/enroll", (req, res) => {
 
   enrollments.push(newEnrollment);
 
+  // Initialize user progress for this course if it doesn't exist
+  if (!userProgress[numericUserId]) {
+    userProgress[numericUserId] = {};
+  }
+  if (!userProgress[numericUserId][numericCourseId]) {
+    userProgress[numericUserId][numericCourseId] = {
+      quizzes: [],
+      timeSpent: 0,
+      completedModules: [],
+    };
+  }
+
   console.log("New Enrollment:", newEnrollment);
-  console.log("Current Enrollments:", enrollments); // For debugging purposes
+  console.log("Current Enrollments:", enrollments);
 
   res
     .status(201)
     .json({ message: "Enrollment successful!", enrollment: newEnrollment });
+});
+
+// --- NEW: GET /user/:userId/courses → View user progress ---
+app.get("/user/:userId/courses", (req, res) => {
+  const userId = parseInt(req.params.userId); // Get userId from URL parameter
+
+  if (isNaN(userId)) {
+    return res.status(400).json({ message: "Invalid User ID provided." });
+  }
+
+  // Find all enrollments for the given userId
+  const userEnrollments = enrollments.filter(
+    (enrollment) => enrollment.userId === userId
+  );
+
+  if (userEnrollments.length === 0) {
+    // Return 200 OK with an empty array or a specific message if no enrollments
+    return res.status(200).json([]); // Or { message: `User ${userId} has no enrollments.` }
+  }
+
+  // Combine enrollment info with detailed progress for each course
+  const coursesWithProgress = userEnrollments.map((enrollment) => {
+    // Find the course details from the global 'courses' array
+    const courseDetail = courses.find((c) => c.id === enrollment.courseId);
+
+    // Get progress for this specific course. Use a default empty object if no progress is recorded.
+    const progress = userProgress[userId]
+      ? userProgress[userId][enrollment.courseId]
+      : {};
+
+    return {
+      course: courseDetail || {
+        id: enrollment.courseId,
+        name: "Unknown Course",
+      }, // Provide a fallback if course not found
+      enrollmentDate: enrollment.enrollmentDate,
+      progress: progress || { quizzes: [], timeSpent: 0, completedModules: [] }, // Ensure progress is an object
+    };
+  });
+
+  res.status(200).json(coursesWithProgress);
 });
 
 // 4. Start the Express server and listen on PORT
