@@ -4,3 +4,14 @@ build/
 .DS_Store
 dist/
 npm-debug.log
+
+# React App specific ignores
+client/app/node_modules/
+client/app/build/
+client/app/.env.local
+client/app/.env.development.local
+client/app/.env.test.local
+client/app/.env.production.local
+client/app/npm-debug.log*
+client/app/yarn-error.log*
+client/app/coverage/
