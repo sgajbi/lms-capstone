@@ -1,0 +1,13 @@
+{
+  "title": "Introduction to NoSQL Databases",
+  "type": "Video Lecture",
+  "courseId": 201,
+  "instructorId": 1,
+  "duration_minutes": 45,
+  "tags": ["database", "NoSQL", "MongoDB"],
+  "url": "https://example.com/videos/nosql-intro",
+  "metadata": {
+    "uploadDate": { "$date": "2024-03-15T10:00:00Z" },
+    "status": "published"
+  }
+}
