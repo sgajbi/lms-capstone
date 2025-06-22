@@ -46,7 +46,7 @@ let enrollments = [
   { userId: 1, courseId: 3, enrollmentDate: "2024-02-05T12:30:00.000Z" },
   { userId: 2, courseId: 2, enrollmentDate: "2024-02-15T09:15:00.000Z" },
 ];
-// NEW: In-memory store for user progress { userId: { courseId: { quizzes: [], timeSpent: 0, completedModules: [] } } }
+// In-memory store for user progress { userId: { courseId: { quizzes: [], timeSpent: 0, completedModules: [] } } }
 let userProgress = {
   1: {
     // Alice's progress
@@ -148,38 +148,28 @@ app.post("/enroll", (req, res) => {
     };
   }
 
-  console.log("New Enrollment:", newEnrollment);
-  console.log("Current Enrollments:", enrollments);
-
   res
     .status(201)
     .json({ message: "Enrollment successful!", enrollment: newEnrollment });
 });
 
-// --- NEW: GET /user/:userId/courses → View user progress ---
 app.get("/user/:userId/courses", (req, res) => {
-  const userId = parseInt(req.params.userId); // Get userId from URL parameter
+  const userId = parseInt(req.params.userId);
 
   if (isNaN(userId)) {
     return res.status(400).json({ message: "Invalid User ID provided." });
   }
 
-  // Find all enrollments for the given userId
   const userEnrollments = enrollments.filter(
     (enrollment) => enrollment.userId === userId
   );
 
   if (userEnrollments.length === 0) {
-    // Return 200 OK with an empty array or a specific message if no enrollments
-    return res.status(200).json([]); // Or { message: `User ${userId} has no enrollments.` }
+    return res.status(200).json([]);
   }
 
-  // Combine enrollment info with detailed progress for each course
   const coursesWithProgress = userEnrollments.map((enrollment) => {
-    // Find the course details from the global 'courses' array
     const courseDetail = courses.find((c) => c.id === enrollment.courseId);
-
-    // Get progress for this specific course. Use a default empty object if no progress is recorded.
     const progress = userProgress[userId]
       ? userProgress[userId][enrollment.courseId]
       : {};
@@ -188,13 +178,105 @@ app.get("/user/:userId/courses", (req, res) => {
       course: courseDetail || {
         id: enrollment.courseId,
         name: "Unknown Course",
-      }, // Provide a fallback if course not found
+      },
       enrollmentDate: enrollment.enrollmentDate,
-      progress: progress || { quizzes: [], timeSpent: 0, completedModules: [] }, // Ensure progress is an object
+      progress: progress || { quizzes: [], timeSpent: 0, completedModules: [] },
     };
   });
 
   res.status(200).json(coursesWithProgress);
+});
+
+// --- NEW: GET /recommend?interest=ai → return smart suggestions ---
+app.get("/recommend", (req, res) => {
+  const interest = req.query.interest ? req.query.interest.toLowerCase() : "";
+  let recommendation = "No specific recommendation based on your interest.";
+
+  if (interest.includes("ai") || interest.includes("machine learning")) {
+    recommendation =
+      'We recommend courses in "Machine Learning with Python" or "Deep Learning Fundamentals".';
+  } else if (interest.includes("web") || interest.includes("frontend")) {
+    recommendation =
+      'We recommend "React.js Advanced Topics" or "Full-stack Development with Node.js".';
+  } else if (interest.includes("data")) {
+    recommendation =
+      'We recommend "Big Data Analytics" or "SQL for Data Science".';
+  } else if (interest.includes("design")) {
+    recommendation =
+      'We recommend "UI/UX Design Principles" or "Figma for Beginners".';
+  }
+
+  res.status(200).json({
+    interest: req.query.interest || "unspecified",
+    recommendation: recommendation,
+  });
+});
+
+// --- NEW: POST /track-progress → Store progress like quiz scores, time spent, completed modules, etc. ---
+// Request body example: { "userId": 1, "courseId": 1, "module": "Module 1", "score": 85, "timeSpent": 30 }
+app.post("/track-progress", (req, res) => {
+  const { userId, courseId, module, score, timeSpent } = req.body;
+
+  if (userId === undefined || courseId === undefined) {
+    return res.status(400).json({
+      message: "User ID and Course ID are required to track progress.",
+    });
+  }
+
+  const numericUserId = parseInt(userId);
+  const numericCourseId = parseInt(courseId);
+
+  if (isNaN(numericUserId) || isNaN(numericCourseId)) {
+    return res
+      .status(400)
+      .json({ message: "User ID and Course ID must be valid numbers." });
+  }
+
+  // Ensure user and course entry exists in userProgress. Initialize if not present.
+  if (!userProgress[numericUserId]) {
+    userProgress[numericUserId] = {};
+  }
+  if (!userProgress[numericUserId][numericCourseId]) {
+    userProgress[numericUserId][numericCourseId] = {
+      quizzes: [],
+      timeSpent: 0, // in minutes
+      completedModules: [],
+    };
+  }
+
+  // Get current course progress for the user
+  const currentCourseProgress = userProgress[numericUserId][numericCourseId];
+
+  // Update progress based on provided data
+  if (module && !currentCourseProgress.completedModules.includes(module)) {
+    currentCourseProgress.completedModules.push(module);
+    console.log(
+      `User ${numericUserId} completed module ${module} for course ${numericCourseId}`
+    );
+  }
+  if (typeof score === "number" && score >= 0 && score <= 100) {
+    currentCourseProgress.quizzes.push({
+      module: module || "general",
+      score: score,
+      date: new Date().toISOString(),
+    });
+    console.log(
+      `User ${numericUserId} scored ${score} in a quiz for course ${numericCourseId}`
+    );
+  }
+  if (typeof timeSpent === "number" && timeSpent > 0) {
+    currentCourseProgress.timeSpent += timeSpent; // Add to total time spent
+    console.log(
+      `User ${numericUserId} spent ${timeSpent} more minutes on course ${numericCourseId}. Total: ${currentCourseProgress.timeSpent}`
+    );
+  }
+
+  console.log("Updated User Progress:", userProgress); // For debugging purposes
+
+  res.status(200).json({
+    message: "Progress tracked successfully!",
+    currentProgress: currentCourseProgress,
+  });
 });
 
 // 4. Start the Express server and listen on PORT
